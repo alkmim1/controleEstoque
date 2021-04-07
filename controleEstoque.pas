@@ -12,11 +12,17 @@ uses crt, sysutils;
 
 type
     produto = Record
+    id: integer;
     nome: string[30];
     quantidade: integer;
     dataValidade: string[10];
 end;
 
+{ 
+  FUNCTION: Menu 
+  OBJETIVO: Menu Principal da Aplicacao
+  RETORNO: Retorna numero inteiro que diz respeito a opcao selecionada pelo usuario
+}
 function menu:integer;
 
     var opcao: integer;
@@ -28,7 +34,7 @@ begin
     writeln;
     writeln('1 - Cadastro de Produtos');
     writeln('2 - Listar Estoque');
-    writeln('3 - Registrar Venda');
+    writeln('3 - Baixar Estoque');
     writeln('4 - Finalizar');
     writeln;
     writeln('Digite a opcao desejada: ');
@@ -37,6 +43,11 @@ begin
     menu := opcao;
 end;
 
+{ 
+  FUNCTION: OpcaoCRUD 
+  OBJETIVO: Menu do CRUD de Produtos
+  RETORNO: Retorna numero inteiro que diz respeito a opcao selecionada pelo usuario
+}
 function opcaoCRUD:integer;
 
     var opcao: integer;
@@ -57,6 +68,42 @@ begin
     opcaoCRUD := opcao;
 end;
 
+{ 
+  FUNCTION: maxID 
+  OBJETIVO: Retornar o numero de produtos da base para definir o proximo identificador a ser cadastrado
+  RETORNO: Retorna quantidade de produtos em um numero inteiro
+}
+function maxID:integer;
+var
+  currentProduto: produto;
+  arquivo: file of produto;
+  qtd_produtos: integer;
+begin
+  assign(arquivo, 'produtos.dat');
+  {$I-} reset(arquivo); {$I+};
+  if ioresult <> 0 then
+  begin
+    maxID := 0;
+  end
+  else
+  begin
+    qtd_produtos := 0;
+    seek(arquivo, 0);
+    while not eof(arquivo) do
+    begin
+      read(arquivo, currentProduto);
+      qtd_produtos := qtd_produtos + 1;
+    end;
+    close(arquivo);
+    maxID := qtd_produtos;
+  end;
+end;
+
+{ 
+  PROCEDURE: cadastraProduto 
+  OBJETIVO: Cadastrar Produto na base de dados (arquivo)
+  RETORNO: Nao ha retorno
+}
 procedure cadastraProduto;
 var
   novoProduto: produto;
@@ -66,6 +113,7 @@ begin
 
   writeln('CADASTRAR PRODUTO');
   writeln;
+  novoProduto.id := maxID + 1;
   write('Digite o nome do produto: ');
   readln(novoProduto.nome);
   write('Digite a quantidade do produto em estoque: ');
@@ -85,9 +133,15 @@ begin
   close(arquivo);
 end;
 
+{ 
+  PROCEDURE: atualizaProduto 
+  OBJETIVO: Atualizar dados de Produto na base (arquivo)
+  RETORNO: Nao ha retorno
+}
 procedure atualizaProduto;
 var
   encontrado: boolean;
+  id: integer;
   nome: string[30];
   quantidade: integer;
   dataValidade: string[10];
@@ -98,8 +152,10 @@ begin
  
   clrscr;
  
-  writeln('ATUALIZAR PRODUTO');
+  writeln('EDITAR PRODUTO');
   writeln;
+  write('Digite o ID do Produto: ');
+  readln(id);
   write('Digite o nome do Produto: ');
   readln(nome);
   write('Digite a quantidade: ');
@@ -126,8 +182,9 @@ begin
       while not eof(arquivoAntigo) do
       begin
         read(arquivoAntigo, tmp);
-        if nome = tmp.nome then
+        if id = tmp.id then
         begin
+          tmp.nome := nome;
           tmp.quantidade := quantidade;
           tmp.dataValidade := dataValidade;
           encontrado := true;
@@ -155,6 +212,11 @@ begin
   end;
 end;
 
+{ 
+  PROCEDURE: removeProduto 
+  OBJETIVO: Remover registro de produto da base (arquivo)
+  RETORNO: Nao ha retorno
+}
 procedure removeProduto;
 var
   encontrado: boolean;
@@ -219,6 +281,11 @@ begin
   end;
 end;
 
+{ 
+  PROCEDURE: listarEstoque
+  OBJETIVO: Lista todos os produtos registrados na base e seus dados
+  RETORNO: Nao ha retorno
+}
 procedure listarEstoque;
 var
   currentProduto: produto;
@@ -244,6 +311,7 @@ begin
     begin
       read(arquivo, currentProduto);
       writeln;
+      writeln('ID: ', currentProduto.id);
       writeln('Produto: ', currentProduto.nome);
       writeln('Quantidade: ', currentProduto.quantidade);
       writeln('Data de validade: ', currentProduto.dataValidade);
@@ -259,11 +327,111 @@ begin
   end;
 end;
 
-procedure menuCRUD;
+{ 
+  PROCEDURE: baixarEstoque
+  OBJETIVO: Registra venda para efetuar baixa no estoque
+  RETORNO: Nao ha retorno
+}
+procedure baixarEstoque;
+var
+  encontrado: boolean;
+  id: integer;
+  nome: string[30];
+  quantidade: integer;
+  tmp: produto;
+  arquivoAntigo, arquivoAtualizado: file of produto;
+  currentProduto: produto;
+  arquivo: file of produto;
+begin
+  encontrado := false;
+  clrscr;
+  writeln('REGISTRAR VENDA');
+  writeln;
 
+  assign(arquivo, 'produtos.dat');
+  {$I-} reset(arquivo); {$I+};
+  if ioresult <> 0 then
+  begin
+    writeln;
+    write('Nao ha produtos cadastrados!');
+    sleep(2000);
+  end
+  else
+  begin
+    seek(arquivo, 0);
+    while not eof(arquivo) do
+    begin
+      read(arquivo, currentProduto);
+      writeln;
+      writeln('ID: ', currentProduto.id);
+      writeln('Produto: ', currentProduto.nome);
+      writeln('Quantidade: ', currentProduto.quantidade);
+    end;
+
+    writeln;
+    close(arquivo);
+  end;
+
+  write('Digite o ID do Produto para baixar estoque: ');
+  readln(id);
+  write('Digite a quantidade vendido(a): ');
+  readln(quantidade);
+  assign(arquivoAntigo, 'produtos.dat');
+  {$I-} reset(arquivoAntigo); {$I+};
+  if ioresult = 0 then
+  begin
+    assign(arquivoAtualizado, 'temp.dat');
+    {$I-} rewrite(arquivoAtualizado); {$I+};
+    if ioresult <> 0 then
+    begin
+      writeln;
+      write('ERRO! Nao foi possivel registrar essa venda.');
+      close(arquivoAntigo);
+      sleep(2000);
+    end
+    else
+    begin
+      seek(arquivoAntigo, 0);
+      while not eof(arquivoAntigo) do
+      begin
+        read(arquivoAntigo, tmp);
+        if id = tmp.id then
+        begin
+          nome := tmp.nome;
+          tmp.quantidade := tmp.quantidade - quantidade;
+          quantidade := tmp.quantidade;
+          encontrado := true;
+        end;
+        write(arquivoAtualizado, tmp);
+      end;
+      close(arquivoAntigo);
+      close(arquivoAtualizado);
+      erase(arquivoAntigo);
+      rename(arquivoAtualizado, 'produtos.dat');
+      writeln;
+      if encontrado then
+        write('Venda registrada com sucesso! Novo estoque de ', nome ,' e de ', quantidade , '.')
+      else
+        write('ERRO! Nao foi possivel encontrar o produto informado.');
+      sleep(2000);
+    end;
+  end
+  else
+  begin
+    writeln;
+    write('Nao ha produtos cadastrados.');
+    sleep(2000);
+  end;
+end;
+
+{ 
+  PROCEDURE: menuCRUD
+  OBJETIVO: Executa procedures do CRUD baseado na escolha de opcao do usuario
+  RETORNO: Nao ha retorno
+}
+procedure menuCRUD;
 var
   opcao_crud: integer;
-
 begin
   repeat
     opcao_crud := opcaoCRUD;
@@ -292,7 +460,7 @@ begin
     case opcao of
       1: menuCRUD;
       2: listarEstoque;
-      3: writeln('Registra Venda');
+      3: baixarEstoque;
       4:
         begin
           writeln('Obrigado por utilizar nosso programa!');
